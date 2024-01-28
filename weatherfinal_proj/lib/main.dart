@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'apiCalls.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+void main() async{
+  await dotenv.load();
   runApp(const MyApp());
 }
 
@@ -91,9 +93,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-
-
-
   @override
   Widget build(BuildContext context) {
     // This method is rerun every time setState is called, for instance as done
@@ -139,10 +138,13 @@ class _MyHomePageState extends State<MyHomePage> {
                 _controller.clear();
                 try {
                   // Get the current location
-                  Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+                  Position position = await Geolocator.getCurrentPosition(
+                      desiredAccuracy: LocationAccuracy.high);
                   // Fetch the weather for the current location
-                  String location = await apiCalls.fetchLocation(position.latitude, position.longitude);
-                  Map<String, dynamic> weatherData = await apiCalls.fetchWeather(location);
+                  String location = await apiCalls.fetchLocation(
+                      position.latitude, position.longitude);
+                  Map<String, dynamic> weatherData =
+                      await apiCalls.fetchWeather(location);
                   _midText = 'Weather at $location: ${weatherData['temp_c']}°C';
                 } catch (e) {
                   _midText = 'Failed to get weather: $e';
@@ -154,68 +156,89 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       body: _isTyping
-        ? ListView.builder(
-            itemCount: _suggestions.length,
-            itemBuilder: (context, index) {
-              return ListTile(
-                title: Text(_suggestions[index]['name']),
-                onTap: () async {
-                  setState(() {
-                    _selectedCity = _suggestions[index];
-                    _controller.text = _selectedCity['name'];
-                    _isTyping = false;
-                  });
-                  fetchWeatherForCity(_selectedCity['name']);
-                },
-              );
-            },
-          )
-        : PageView(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _index = index;
-              });
-            },
-            children: <Widget>[
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Text('Currently', style: TextStyle(fontSize: 36, color: Colors.lightBlueAccent),),
-                    Text(_midText, style: TextStyle(fontSize: 12, color: Colors.redAccent),),
-                  ],
+          ? ListView.builder(
+              itemCount: _suggestions.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  title: Text(_suggestions[index]['name']),
+                  onTap: () async {
+                    setState(() {
+                      _selectedCity = _suggestions[index];
+                      _controller.text = _selectedCity['name'];
+                      _isTyping = false;
+                    });
+                    fetchWeatherForCity(_selectedCity['name']);
+                  },
+                );
+              },
+            )
+          : PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _index = index;
+                });
+              },
+              children: <Widget>[
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Text(
+                        'Currently',
+                        style: TextStyle(
+                            fontSize: 36, color: Colors.lightBlueAccent),
+                      ),
+                      Text(
+                        _midText,
+                        style: TextStyle(fontSize: 12, color: Colors.redAccent),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Text('Today', style: TextStyle(fontSize: 24, color: Colors.purple),),
-                    Text(_midText, style: TextStyle(fontSize: 24, color: Colors.purple),),
-                  ],
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Text(
+                        'Today',
+                        style: TextStyle(fontSize: 24, color: Colors.purple),
+                      ),
+                      Text(
+                        _midText,
+                        style: TextStyle(fontSize: 24, color: Colors.purple),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Text('Weekly', style: TextStyle(fontSize: 12, color: Colors.red),),
-                    Text(_midText, style: TextStyle(fontSize: 36, color: Colors.lightBlueAccent)),
-                  ],
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Text(
+                        'Weekly',
+                        style: TextStyle(fontSize: 12, color: Colors.red),
+                      ),
+                      Text(_midText,
+                          style: TextStyle(
+                              fontSize: 36, color: Colors.lightBlueAccent)),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: (index) {
-          _pageController.animateToPage(index, duration: Duration(milliseconds: 200), curve: Curves.easeIn);
+          _pageController.animateToPage(index,
+              duration: Duration(milliseconds: 200), curve: Curves.easeIn);
         },
         items: [
           BottomNavigationBarItem(icon: Icon(Icons.sunny), label: 'Currently'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Today'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Weekly'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_today), label: 'Today'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_month), label: 'Weekly'),
         ],
       ),
     );
