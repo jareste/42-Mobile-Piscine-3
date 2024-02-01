@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'apiCalls.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:math';
 
 void main() async{
   await dotenv.load();
@@ -17,25 +18,21 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
       home: const MyHomePage(title: ''),
+      builder: (context, child) {
+        return Container(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage("assets/images/ElFondo.jpg"), // replace with your image path
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: child,
+        );
+      },
     );
   }
 }
@@ -102,14 +99,19 @@ class _MyHomePageState extends State<MyHomePage> {
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Colors.transparent,
         title: Row(
           children: <Widget>[
             Expanded(
               child: TextField(
                 controller: _controller,
                 focusNode: _focusNode,
+                decoration: const InputDecoration(
+                  hintText: 'Enter a city',
+                ),
                 onChanged: (value) async {
                   if (value.isNotEmpty) {
                     try {
@@ -129,10 +131,15 @@ class _MyHomePageState extends State<MyHomePage> {
                     });
                   }
                 },
+                onSubmitted: (value) {
+                  setState(() {
+                    _isTyping = false;
+                  });
+                }
               ),
             ),
             IconButton(
-              icon: Icon(Icons.location_on),
+              icon: const Icon(Icons.location_on),
               onPressed: () async {
                 _midText = 'Getting weather...';
                 _controller.clear();
@@ -157,10 +164,27 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: _isTyping
           ? ListView.builder(
-              itemCount: _suggestions.length,
+              itemCount: min(_suggestions.length, 5),
               itemBuilder: (context, index) {
+                // Split the city name into words
+                List<String> words = _suggestions[index]['name'].split(' ');
+
+                // Create a TextSpan for each word, applying a bold style only to the first one
+                List<TextSpan> textSpans = words.map((word) {
+                  return TextSpan(
+                    text: '${words.indexOf(word) == 0 ? word : ' $word'}',
+                    style: TextStyle(fontWeight: words.indexOf(word) == 0 ? FontWeight.bold : FontWeight.normal, 
+                                    fontSize: words.indexOf(word) == 0 ? 22.0 : 17.0),
+                  );
+                }).toList();
+
                 return ListTile(
-                  title: Text(_suggestions[index]['name']),
+                  title: RichText(
+                    text: TextSpan(
+                      children: textSpans,
+                      style: DefaultTextStyle.of(context).style,
+                    ),
+                  ),
                   onTap: () async {
                     setState(() {
                       _selectedCity = _suggestions[index];
@@ -228,6 +252,8 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
             ),
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.transparent, // Set the background color to transparent
+        elevation: 0, // Set the elevation to 0 to remove shadow
         currentIndex: _index,
         onTap: (index) {
           _pageController.animateToPage(index,
