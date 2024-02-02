@@ -3,8 +3,10 @@ import 'apiCalls.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:math';
+// import 'package:fl_chart/fl_chart.dart';
+import 'package:syncfusion_flutter_charts/charts.dart' as charts;
 
-void main() async{
+void main() async {
   await dotenv.load();
   runApp(const MyApp());
 }
@@ -26,7 +28,8 @@ class MyApp extends StatelessWidget {
         return Container(
           decoration: const BoxDecoration(
             image: DecorationImage(
-              image: AssetImage("assets/images/ElFondo.jpg"), // replace with your image path
+              image: AssetImage(
+                  "assets/images/ElFondo.jpg"), // replace with your image path
               fit: BoxFit.cover,
             ),
           ),
@@ -59,11 +62,18 @@ class _MyHomePageState extends State<MyHomePage> {
   int _index = 0;
   final _pageController = PageController();
   String _midText = '';
+  String _location = '';
+  String _temperature = '';
+  String _weatherDescription = '';
+  String _weatherIcon = '';
+  String _windSpeed = '';
   final TextEditingController _controller = TextEditingController();
   List<Map<String, dynamic>> _suggestions = [];
   Map<String, dynamic> _selectedCity = {};
   bool _isTyping = false;
   final FocusNode _focusNode = FocusNode();
+  List<HourlyData> _hourlyDataList = [];
+  List<ChartData> _chartDataList = [];
 
   @override
   void initState() {
@@ -81,7 +91,13 @@ class _MyHomePageState extends State<MyHomePage> {
       Map<String, dynamic> weatherData = await apiCalls.fetchWeather(cityName);
       // Update _midText with the weather information
       setState(() {
-        _midText = 'Weather in $cityName: ${weatherData['temp_c']}°C';
+        _midText = 'Weather in $cityName: ${weatherData['current']['temp_c']}°C';
+        _location =
+            '${weatherData['location']['name']}, ${weatherData['location']['region']}, ${weatherData['location']['country']}';
+        _temperature = '${weatherData['current']['temp_c']}°C';
+        _weatherDescription = '${weatherData['current']['condition']['text']}';
+        _weatherIcon = 'http:${weatherData['current']['condition']['icon']}';
+        _windSpeed = '${weatherData['current']['wind_kph']} kph';
       });
     } catch (e) {
       setState(() {
@@ -107,36 +123,35 @@ class _MyHomePageState extends State<MyHomePage> {
           children: <Widget>[
             Expanded(
               child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                decoration: const InputDecoration(
-                  hintText: 'Enter a city',
-                ),
-                onChanged: (value) async {
-                  if (value.isNotEmpty) {
-                    try {
-                      _suggestions = await apiCalls.fetchCities(value);
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  decoration: const InputDecoration(
+                    hintText: 'Enter a city',
+                  ),
+                  onChanged: (value) async {
+                    if (value.isNotEmpty) {
+                      try {
+                        _suggestions = await apiCalls.fetchCities(value);
+                        setState(() {
+                          _isTyping = true;
+                        });
+                      } catch (e) {
+                        setState(() {
+                          _suggestions = [];
+                          _isTyping = false;
+                        });
+                      }
+                    } else {
                       setState(() {
-                        _isTyping = true;
-                      });
-                    } catch (e) {
-                      setState(() {
-                        _suggestions = [];
                         _isTyping = false;
                       });
                     }
-                  } else {
+                  },
+                  onSubmitted: (value) {
                     setState(() {
                       _isTyping = false;
                     });
-                  }
-                },
-                onSubmitted: (value) {
-                  setState(() {
-                    _isTyping = false;
-                  });
-                }
-              ),
+                  }),
             ),
             IconButton(
               icon: const Icon(Icons.location_on),
@@ -173,8 +188,11 @@ class _MyHomePageState extends State<MyHomePage> {
                 List<TextSpan> textSpans = words.map((word) {
                   return TextSpan(
                     text: '${words.indexOf(word) == 0 ? word : ' $word'}',
-                    style: TextStyle(fontWeight: words.indexOf(word) == 0 ? FontWeight.bold : FontWeight.normal, 
-                                    fontSize: words.indexOf(word) == 0 ? 22.0 : 17.0),
+                    style: TextStyle(
+                        fontWeight: words.indexOf(word) == 0
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        fontSize: words.indexOf(word) == 0 ? 22.0 : 17.0),
                   );
                 }).toList();
 
@@ -192,6 +210,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       _isTyping = false;
                     });
                     fetchWeatherForCity(_selectedCity['name']);
+                    _hourlyDataList = await apiCalls.fetchHourlyData(_selectedCity['name']);
+                    _chartDataList = _hourlyDataList.map((hourlyData) {
+                      DateTime dateTime = DateTime.parse(hourlyData.time);
+                      String time = "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+                      return ChartData(time, hourlyData.temperature);
+                    }).toList();
                   },
                 );
               },
@@ -205,34 +229,140 @@ class _MyHomePageState extends State<MyHomePage> {
               },
               children: <Widget>[
                 Center(
-                  child: Column(
+                  child: _location == ''
+                      ? const CircularProgressIndicator() 
+                  : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      Text(
-                        'Currently',
-                        style: TextStyle(
-                            fontSize: 36, color: Colors.lightBlueAccent),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Text(
+                            _location.split(',')[0], // City name
+                            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 2, 41, 109)),
+                            textAlign: TextAlign.center,
+                          ),
+                          Text(
+                            _location.substring(_location.indexOf(',') + 1), // Rest of the location
+                            style: const TextStyle(fontSize: 24, color: Colors.black),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 20),
                       Text(
-                        _midText,
-                        style: TextStyle(fontSize: 12, color: Colors.redAccent),
+                        _temperature,
+                        style: const TextStyle(
+                            fontSize: 26, color: Color.fromARGB(255, 255, 0, 0)),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        _weatherDescription,
+                        style: const TextStyle(
+                            fontSize: 26, color: Colors.black),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        // width: 100,
+                        // height: 100,
+                        decoration : const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black,
+                          ),
+                        child: Image.network(
+                          _weatherIcon,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          const Icon(Icons.air, color: Colors.blue), // This is the wind icon
+                          Text(
+                            _windSpeed,
+                            style: const TextStyle(fontSize: 26, color: Colors.black),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text(
-                        'Today',
-                        style: TextStyle(fontSize: 24, color: Colors.purple),
-                      ),
-                      Text(
-                        _midText,
-                        style: TextStyle(fontSize: 24, color: Colors.purple),
-                      ),
-                    ],
+                SafeArea(
+                  child: Center(
+                    child: 
+                    // Column(
+                    //     mainAxisAlignment: MainAxisAlignment.center,
+                    //     children: <Widget>[
+                    //       Text(
+                    //         _location.split(',')[0], // City name
+                    //         style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 2, 41, 109)),
+                    //         textAlign: TextAlign.center,
+                    //       ),
+                    //       Text(
+                    //         _location.substring(_location.indexOf(',') + 1), // Rest of the location
+                    //         style: const TextStyle(fontSize: 24, color: Colors.black),
+                    //         textAlign: TextAlign.center,
+                    //       ),
+                    //     ],
+                    //   ),
+                    Column(
+                      children: [
+                        Text(
+                            _location.split(',')[0], // City name
+                            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 2, 41, 109)),
+                            textAlign: TextAlign.center,
+                          ),
+                          Text(
+                            _location.substring(_location.indexOf(',') + 1), // Rest of the location
+                            style: const TextStyle(fontSize: 24, color: Colors.black),
+                            textAlign: TextAlign.center,
+                          ),
+                        Container(
+                          height: MediaQuery.of(context).size.height * 0.5,
+                          color: Color.fromARGB(120, 175, 66, 2),
+                          child: charts.SfCartesianChart(
+                            // Initialize category axis
+                            primaryXAxis: charts.CategoryAxis(),
+                            series: <charts.CartesianSeries>[
+                              // Initialize line series
+                              charts.LineSeries<ChartData, String>(
+                                dataSource: _chartDataList,
+                                xValueMapper: (ChartData data, _) => data.x,
+                                yValueMapper: (ChartData data, _) => data.y
+                              )
+                            ]
+                          )
+                        ),
+                        Container(
+                          height: MediaQuery.of(context).size.height * 0.2,
+                          color: Color.fromARGB(120, 175, 66, 2),
+                          // adjust the height as needed
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _hourlyDataList.length,
+                            itemBuilder: (context, index) {
+                              DateTime dateTime = DateTime.parse(_hourlyDataList[index].time);
+                              String time = "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+                              return Card(
+                                color: Colors.transparent,
+                                child: Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: Column(
+                                    children: <Widget>[
+                                      Text(time),
+                                      Text('${_hourlyDataList[index].temperature.toString()}ºC'),
+                                      Image.network(_hourlyDataList[index].icon), 
+                                      Text('${_hourlyDataList[index].windSpeed.toString()} kph')
+                                      // add more fields as needed
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      ],
+                    ),
                   ),
                 ),
                 Center(
@@ -252,7 +382,8 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
             ),
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.transparent, // Set the background color to transparent
+        backgroundColor:
+            Colors.transparent, // Set the background color to transparent
         elevation: 0, // Set the elevation to 0 to remove shadow
         currentIndex: _index,
         onTap: (index) {
