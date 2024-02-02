@@ -48,7 +48,34 @@ class apiCalls {
     }
   }
 
-  // _weatherIcon = 'http:${weatherData['current']['condition']['icon']}';
+static Future<List<WeeklyData>> fetchWeeklyData(String cityName) async {
+  final response = await http.get(Uri.parse(
+      'http://api.weatherapi.com/v1/forecast.json?key=$weatherApiKey&q=$cityName&days=7'));
+
+  if (response.statusCode == 200) {
+    var data = jsonDecode(response.body);
+    var forecastData = data['forecast']['forecastday'];
+    
+    List<WeeklyData> weeklyDataList = forecastData.map<WeeklyData>((item) {
+      String iconUrl = 'http:${item['day']['condition']['icon']}';
+      return WeeklyData(
+        time: item['date'],
+        minTemp: item['day']['mintemp_c'].toDouble(),
+        maxTemp: item['day']['maxtemp_c'].toDouble(),
+        icon: iconUrl,
+      );
+    }).toList();
+
+    // Print the result to the console
+    print(weeklyDataList);
+    print('---> Weekly Data <---');
+
+    return weeklyDataList;
+  } else {
+    throw Exception('Failed to load weekly data');
+  }
+}
+
 
   static String locationIqApiKey = dotenv.env['LOCATIONIQ_API_KEY'] ?? '';
 
@@ -100,9 +127,36 @@ class HourlyData {
   }
 }
 
+class WeeklyData {
+  final String time;
+  final double minTemp;
+  final double maxTemp;
+  final String icon;
+
+  WeeklyData({
+    required this.time,
+    required this.minTemp,
+    required this.maxTemp,
+    required this.icon,
+  });
+  @override
+  String toString() {
+    return 'WeeklyData{time: $time, min: $minTemp, max: $maxTemp}';
+  }
+}
+
 class ChartData {
   final String x;
   final double y;
 
   ChartData(this.x, this.y);
+}
+
+
+class ChartDataWeekly {
+  final String x;
+  final double minTemp;
+  final double maxTemp;
+
+  ChartDataWeekly(this.x, this.minTemp, this.maxTemp);
 }

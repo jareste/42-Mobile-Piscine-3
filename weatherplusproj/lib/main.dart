@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:math';
 // import 'package:fl_chart/fl_chart.dart';
 import 'package:syncfusion_flutter_charts/charts.dart' as charts;
+import 'package:intl/intl.dart';
 
 void main() async {
   await dotenv.load();
@@ -74,6 +75,8 @@ class _MyHomePageState extends State<MyHomePage> {
   final FocusNode _focusNode = FocusNode();
   List<HourlyData> _hourlyDataList = [];
   List<ChartData> _chartDataList = [];
+  List<WeeklyData> _weeklyDataList = [];
+  List<ChartDataWeekly> _chartDataWeeklyList = [];
 
   @override
   void initState() {
@@ -216,6 +219,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       String time = "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
                       return ChartData(time, hourlyData.temperature);
                     }).toList();
+                    _weeklyDataList = await apiCalls.fetchWeeklyData(_selectedCity['name']);
+                    _chartDataWeeklyList = _weeklyDataList.map((weeklyData) {
+                    DateTime dateTime = DateTime.parse(weeklyData.time);
+                    String day = DateFormat('EEEE').format(dateTime); // get the day of the week
+                      return ChartDataWeekly(day, weeklyData.minTemp, weeklyData.maxTemp);
+                    }).toList();
                   },
                 );
               },
@@ -290,21 +299,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 SafeArea(
                   child: Center(
                     child: 
-                    // Column(
-                    //     mainAxisAlignment: MainAxisAlignment.center,
-                    //     children: <Widget>[
-                    //       Text(
-                    //         _location.split(',')[0], // City name
-                    //         style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 2, 41, 109)),
-                    //         textAlign: TextAlign.center,
-                    //       ),
-                    //       Text(
-                    //         _location.substring(_location.indexOf(',') + 1), // Rest of the location
-                    //         style: const TextStyle(fontSize: 24, color: Colors.black),
-                    //         textAlign: TextAlign.center,
-                    //       ),
-                    //     ],
-                    //   ),
                     Column(
                       children: [
                         Text(
@@ -365,20 +359,74 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   ),
                 ),
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text(
-                        'Weekly',
-                        style: TextStyle(fontSize: 12, color: Colors.red),
-                      ),
-                      Text(_midText,
-                          style: TextStyle(
-                              fontSize: 36, color: Colors.lightBlueAccent)),
-                    ],
+                SafeArea(
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Text(
+                          _location.split(',')[0], // City name
+                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 2, 41, 109)),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          _location.substring(_location.indexOf(',') + 1), // Rest of the location
+                          style: const TextStyle(fontSize: 24, color: Colors.black),
+                          textAlign: TextAlign.center,
+                        ),
+                        Container(
+                          height: MediaQuery.of(context).size.height * 0.5,
+                          color: Color.fromARGB(120, 175, 66, 2),
+                          child: charts.SfCartesianChart(
+                            // Initialize category axis
+                            primaryXAxis: charts.CategoryAxis(),
+                            series: <charts.CartesianSeries>[
+                              // Initialize line series for minimum temperature
+                              charts.LineSeries<ChartDataWeekly, String>(
+                                dataSource: _chartDataWeeklyList,
+                                xValueMapper: (ChartDataWeekly data, _) => data.x,
+                                yValueMapper: (ChartDataWeekly data, _) => data.minTemp
+                              ),
+                              // Initialize line series for maximum temperature
+                              charts.LineSeries<ChartDataWeekly, String>(
+                                dataSource: _chartDataWeeklyList,
+                                xValueMapper: (ChartDataWeekly data, _) => data.x,
+                                yValueMapper: (ChartDataWeekly data, _) => data.maxTemp
+                              )
+                            ]
+                          )
+                        ),
+                        Container(
+                          height: MediaQuery.of(context).size.height * 0.2,
+                          color: Color.fromARGB(120, 175, 66, 2),
+                          // adjust the height as needed
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _weeklyDataList.length,
+                            itemBuilder: (context, index) {
+                              DateTime dateTime = DateTime.parse(_weeklyDataList[index].time);
+                              String dayOfWeek = DateFormat('EEEE').format(dateTime);
+                              return Card(
+                                color: Colors.transparent,
+                                child: Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: Column(
+                                    children: <Widget>[
+                                      Text(dayOfWeek),
+                                      Text('${_weeklyDataList[index].minTemp.toString()}ºC'),
+                                      Text('${_weeklyDataList[index].maxTemp.toString()}ºC'),
+                                      Image.network(_weeklyDataList[index].icon), 
+                                      // add more fields as needed
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      ],
+                    ),
                   ),
-                ),
+                )
               ],
             ),
       bottomNavigationBar: BottomNavigationBar(
