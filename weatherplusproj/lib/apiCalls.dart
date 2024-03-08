@@ -32,50 +32,48 @@ class apiCalls {
       //     .toList());
       // print(data['condition']['icon']);
       // print(data['time']);
-      return hourlyData
-          .map<HourlyData>((item) {
-            String iconUrl = 'http:${item['condition']['icon']}';
-            return HourlyData(
-              time: item['time'],
-              temperature: item['temp_c'].toDouble(),
-              windSpeed: item['wind_kph'].toDouble(),
-              icon: iconUrl,
-            );
-          })
-          .toList();
+      return hourlyData.map<HourlyData>((item) {
+        String iconUrl = 'http:${item['condition']['icon']}';
+        return HourlyData(
+          time: item['time'],
+          temperature: item['temp_c'].toDouble(),
+          windSpeed: item['wind_kph'].toDouble(),
+          icon: iconUrl,
+        );
+      }).toList();
     } else {
       throw Exception('Failed to load hourly data');
     }
   }
 
-static Future<List<WeeklyData>> fetchWeeklyData(String cityName) async {
-  final response = await http.get(Uri.parse(
-      'http://api.weatherapi.com/v1/forecast.json?key=$weatherApiKey&q=$cityName&days=7'));
+  static Future<List<WeeklyData>> fetchWeeklyData(String cityName) async {
+    final response = await http.get(Uri.parse(
+        'http://api.weatherapi.com/v1/forecast.json?key=$weatherApiKey&q=$cityName&days=7'));
 
-  if (response.statusCode == 200) {
-    var data = jsonDecode(response.body);
-    var forecastData = data['forecast']['forecastday'];
-    
-    List<WeeklyData> weeklyDataList = forecastData.map<WeeklyData>((item) {
-      String iconUrl = 'http:${item['day']['condition']['icon']}';
-      return WeeklyData(
-        time: item['date'],
-        minTemp: item['day']['mintemp_c'].toDouble(),
-        maxTemp: item['day']['maxtemp_c'].toDouble(),
-        icon: iconUrl,
-      );
-    }).toList();
+    if (response.statusCode == 200) {
+      var data = jsonDecode(response.body);
+      var forecastData = data['forecast']['forecastday'];
 
-    // Print the result to the console
-    print(weeklyDataList);
-    print('---> Weekly Data <---');
+      List<WeeklyData> weeklyDataList = forecastData.map<WeeklyData>((item) {
+        String iconUrl = 'http:${item['day']['condition']['icon']}';
+        return WeeklyData(
+          time: item['date'],
+          minTemp: item['day']['mintemp_c'].toDouble(),
+          maxTemp: item['day']['maxtemp_c'].toDouble(),
+          icon: iconUrl,
+        );
+      }).toList();
 
-    return weeklyDataList;
-  } else {
-    throw Exception('Failed to load weekly data');
+      // Print the result to the console
+      print(weeklyDataList);
+      print(weeklyDataList.length);
+      print('---> Weekly Data <---');
+
+      return weeklyDataList;
+    } else {
+      throw Exception('Failed to load weekly data');
+    }
   }
-}
-
 
   static String locationIqApiKey = dotenv.env['LOCATIONIQ_API_KEY'] ?? '';
 
@@ -83,6 +81,7 @@ static Future<List<WeeklyData>> fetchWeeklyData(String cityName) async {
     final response = await http.get(Uri.parse(
         'https://us1.locationiq.com/v1/reverse.php?key=$locationIqApiKey&lat=$latitude&lon=$longitude&format=json'));
     if (response.statusCode == 200) {
+      print("aqui si que ha entrado en el if de fetchLocation");
       Map<String, dynamic> jsonResponse = json.decode(response.body);
       return jsonResponse['display_name'];
     } else {
@@ -151,7 +150,6 @@ class ChartData {
 
   ChartData(this.x, this.y);
 }
-
 
 class ChartDataWeekly {
   final String x;

@@ -94,13 +94,16 @@ class _MyHomePageState extends State<MyHomePage> {
       Map<String, dynamic> weatherData = await apiCalls.fetchWeather(cityName);
       // Update _midText with the weather information
       setState(() {
-        _midText = 'Weather in $cityName: ${weatherData['current']['temp_c']}°C';
+        _midText =
+            'Weather in $cityName: ${weatherData['current']['temp_c']}°C';
         _location =
             '${weatherData['location']['name']}, ${weatherData['location']['region']}, ${weatherData['location']['country']}';
         _temperature = '${weatherData['current']['temp_c']}°C';
         _weatherDescription = '${weatherData['current']['condition']['text']}';
         _weatherIcon = 'http:${weatherData['current']['condition']['icon']}';
         _windSpeed = '${weatherData['current']['wind_kph']} kph';
+        _pageController.animateToPage(_index,
+              duration: Duration(milliseconds: 200), curve: Curves.easeIn);
       });
     } catch (e) {
       setState(() {
@@ -159,21 +162,45 @@ class _MyHomePageState extends State<MyHomePage> {
             IconButton(
               icon: const Icon(Icons.location_on),
               onPressed: () async {
-                _midText = 'Getting weather...';
-                _controller.clear();
+                print("Button pressed");  // Check if the button's onPressed event is being triggered
+
                 try {
-                  // Get the current location
+                  print("Getting current location");
                   Position position = await Geolocator.getCurrentPosition(
                       desiredAccuracy: LocationAccuracy.high);
-                  // Fetch the weather for the current location
+                  print("Current location: ${position.latitude}, ${position.longitude}");
+
+                  print("Fetching location name");
                   String location = await apiCalls.fetchLocation(
                       position.latitude, position.longitude);
-                  Map<String, dynamic> weatherData =
-                      await apiCalls.fetchWeather(location);
-                  _midText = 'Weather at $location: ${weatherData['temp_c']}°C';
+                  print("Location name: $location");
+
+                  print("Fetching weather data");
+                  fetchWeatherForCity(location);
+                  _hourlyDataList =
+                        await apiCalls.fetchHourlyData(location);
+                  _chartDataList = _hourlyDataList.map((hourlyData) {
+                    DateTime dateTime = DateTime.parse(hourlyData.time);
+                    String time =
+                        "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+                    return ChartData(time, hourlyData.temperature);
+                  }).toList();
+                  _weeklyDataList =
+                      await apiCalls.fetchWeeklyData(location);
+                  _chartDataWeeklyList = _weeklyDataList.map((weeklyData) {
+                    DateTime dateTime = DateTime.parse(weeklyData.time);
+                    String day = DateFormat('EEEE')
+                        .format(dateTime); // get the day of the week
+                    return ChartDataWeekly(
+                        day, weeklyData.minTemp, weeklyData.maxTemp);
+                  }).toList();
+                // print("Weather data: $weatherData");
+
+                  // _midText = 'Weather at $location: ${weatherData['temp_c']}°C';
                 } catch (e) {
-                  _midText = 'Failed to get weather: $e';
+                  print("Error: $e");  // Print the error to the console
                 }
+
                 setState(() {});
               },
             ),
@@ -213,17 +240,22 @@ class _MyHomePageState extends State<MyHomePage> {
                       _isTyping = false;
                     });
                     fetchWeatherForCity(_selectedCity['name']);
-                    _hourlyDataList = await apiCalls.fetchHourlyData(_selectedCity['name']);
+                    _hourlyDataList =
+                        await apiCalls.fetchHourlyData(_selectedCity['name']);
                     _chartDataList = _hourlyDataList.map((hourlyData) {
                       DateTime dateTime = DateTime.parse(hourlyData.time);
-                      String time = "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+                      String time =
+                          "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
                       return ChartData(time, hourlyData.temperature);
                     }).toList();
-                    _weeklyDataList = await apiCalls.fetchWeeklyData(_selectedCity['name']);
+                    _weeklyDataList =
+                        await apiCalls.fetchWeeklyData(_selectedCity['name']);
                     _chartDataWeeklyList = _weeklyDataList.map((weeklyData) {
-                    DateTime dateTime = DateTime.parse(weeklyData.time);
-                    String day = DateFormat('EEEE').format(dateTime); // get the day of the week
-                      return ChartDataWeekly(day, weeklyData.minTemp, weeklyData.maxTemp);
+                      DateTime dateTime = DateTime.parse(weeklyData.time);
+                      String day = DateFormat('EEEE')
+                          .format(dateTime); // get the day of the week
+                      return ChartDataWeekly(
+                          day, weeklyData.minTemp, weeklyData.maxTemp);
                     }).toList();
                   },
                 );
@@ -239,94 +271,106 @@ class _MyHomePageState extends State<MyHomePage> {
               children: <Widget>[
                 Center(
                   child: _location == ''
-                      ? const CircularProgressIndicator() 
-                  : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
-                          Text(
-                            _location.split(',')[0], // City name
-                            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 2, 41, 109)),
-                            textAlign: TextAlign.center,
-                          ),
-                          Text(
-                            _location.substring(_location.indexOf(',') + 1), // Rest of the location
-                            style: const TextStyle(fontSize: 24, color: Colors.black),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        _temperature,
-                        style: const TextStyle(
-                            fontSize: 26, color: Color.fromARGB(255, 255, 0, 0)),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        _weatherDescription,
-                        style: const TextStyle(
-                            fontSize: 26, color: Colors.black),
-                      ),
-                      const SizedBox(height: 20),
-                      Container(
-                        // width: 100,
-                        // height: 100,
-                        decoration : const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black,
-                          ),
-                        child: Image.network(
-                          _weatherIcon,
+                      ? const CircularProgressIndicator()
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                Text(
+                                  _location.split(',')[0], // City name
+                                  style: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color.fromARGB(255, 2, 41, 109)),
+                                  textAlign: TextAlign.center,
+                                ),
+                                Text(
+                                  _location.substring(_location.indexOf(',') +
+                                      1), // Rest of the location
+                                  style: const TextStyle(
+                                      fontSize: 24, color: Colors.black),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              _temperature,
+                              style: const TextStyle(
+                                  fontSize: 26,
+                                  color: Color.fromARGB(255, 255, 0, 0)),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              _weatherDescription,
+                              style: const TextStyle(
+                                  fontSize: 26, color: Colors.black),
+                            ),
+                            const SizedBox(height: 20),
+                            Container(
+                              // width: 100,
+                              // height: 100,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black,
+                              ),
+                              child: Image.network(
+                                _weatherIcon,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                const Icon(Icons.air,
+                                    color:
+                                        Colors.blue), // This is the wind icon
+                                Text(
+                                  _windSpeed,
+                                  style: const TextStyle(
+                                      fontSize: 26, color: Colors.black),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
-                          const Icon(Icons.air, color: Colors.blue), // This is the wind icon
-                          Text(
-                            _windSpeed,
-                            style: const TextStyle(fontSize: 26, color: Colors.black),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
                 ),
                 SafeArea(
                   child: Center(
-                    child: 
-                    Column(
+                    child: Column(
                       children: [
                         Text(
-                            _location.split(',')[0], // City name
-                            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 2, 41, 109)),
-                            textAlign: TextAlign.center,
-                          ),
-                          Text(
-                            _location.substring(_location.indexOf(',') + 1), // Rest of the location
-                            style: const TextStyle(fontSize: 24, color: Colors.black),
-                            textAlign: TextAlign.center,
-                          ),
-                        Container(
-                          height: MediaQuery.of(context).size.height * 0.5,
-                          color: Color.fromARGB(120, 175, 66, 2),
-                          child: charts.SfCartesianChart(
-                            // Initialize category axis
-                            primaryXAxis: charts.CategoryAxis(),
-                            series: <charts.CartesianSeries>[
-                              // Initialize line series
-                              charts.LineSeries<ChartData, String>(
-                                dataSource: _chartDataList,
-                                xValueMapper: (ChartData data, _) => data.x,
-                                yValueMapper: (ChartData data, _) => data.y
-                              )
-                            ]
-                          )
+                          _location.split(',')[0], // City name
+                          style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Color.fromARGB(255, 2, 41, 109)),
+                          textAlign: TextAlign.center,
                         ),
+                        Text(
+                          _location.substring(_location.indexOf(',') +
+                              1), // Rest of the location
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.black),
+                          textAlign: TextAlign.center,
+                        ),
+                        Container(
+                            height: MediaQuery.of(context).size.height * 0.5,
+                            color: Color.fromARGB(120, 175, 66, 2),
+                            child: charts.SfCartesianChart(
+                                // Initialize category axis
+                                primaryXAxis: charts.CategoryAxis(),
+                                series: <charts.CartesianSeries>[
+                                  // Initialize line series
+                                  charts.LineSeries<ChartData, String>(
+                                      dataSource: _chartDataList,
+                                      xValueMapper: (ChartData data, _) =>
+                                          data.x,
+                                      yValueMapper: (ChartData data, _) =>
+                                          data.y)
+                                ])),
                         Container(
                           height: MediaQuery.of(context).size.height * 0.2,
                           color: Color.fromARGB(120, 175, 66, 2),
@@ -335,8 +379,10 @@ class _MyHomePageState extends State<MyHomePage> {
                             scrollDirection: Axis.horizontal,
                             itemCount: _hourlyDataList.length,
                             itemBuilder: (context, index) {
-                              DateTime dateTime = DateTime.parse(_hourlyDataList[index].time);
-                              String time = "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+                              DateTime dateTime =
+                                  DateTime.parse(_hourlyDataList[index].time);
+                              String time =
+                                  "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
                               return Card(
                                 color: Colors.transparent,
                                 child: Padding(
@@ -344,9 +390,12 @@ class _MyHomePageState extends State<MyHomePage> {
                                   child: Column(
                                     children: <Widget>[
                                       Text(time),
-                                      Text('${_hourlyDataList[index].temperature.toString()}ºC'),
-                                      Image.network(_hourlyDataList[index].icon), 
-                                      Text('${_hourlyDataList[index].windSpeed.toString()} kph')
+                                      Text(
+                                          '${_hourlyDataList[index].temperature.toString()}ºC'),
+                                      Image.network(
+                                          _hourlyDataList[index].icon),
+                                      Text(
+                                          '${_hourlyDataList[index].windSpeed.toString()} kph')
                                       // add more fields as needed
                                     ],
                                   ),
@@ -365,36 +414,41 @@ class _MyHomePageState extends State<MyHomePage> {
                       children: [
                         Text(
                           _location.split(',')[0], // City name
-                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 2, 41, 109)),
+                          style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Color.fromARGB(255, 2, 41, 109)),
                           textAlign: TextAlign.center,
                         ),
                         Text(
-                          _location.substring(_location.indexOf(',') + 1), // Rest of the location
-                          style: const TextStyle(fontSize: 24, color: Colors.black),
+                          _location.substring(_location.indexOf(',') +
+                              1), // Rest of the location
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.black),
                           textAlign: TextAlign.center,
                         ),
                         Container(
-                          height: MediaQuery.of(context).size.height * 0.5,
-                          color: Color.fromARGB(120, 175, 66, 2),
-                          child: charts.SfCartesianChart(
-                            // Initialize category axis
-                            primaryXAxis: charts.CategoryAxis(),
-                            series: <charts.CartesianSeries>[
-                              // Initialize line series for minimum temperature
-                              charts.LineSeries<ChartDataWeekly, String>(
-                                dataSource: _chartDataWeeklyList,
-                                xValueMapper: (ChartDataWeekly data, _) => data.x,
-                                yValueMapper: (ChartDataWeekly data, _) => data.minTemp
-                              ),
-                              // Initialize line series for maximum temperature
-                              charts.LineSeries<ChartDataWeekly, String>(
-                                dataSource: _chartDataWeeklyList,
-                                xValueMapper: (ChartDataWeekly data, _) => data.x,
-                                yValueMapper: (ChartDataWeekly data, _) => data.maxTemp
-                              )
-                            ]
-                          )
-                        ),
+                            height: MediaQuery.of(context).size.height * 0.5,
+                            color: Color.fromARGB(120, 175, 66, 2),
+                            child: charts.SfCartesianChart(
+                                // Initialize category axis
+                                primaryXAxis: charts.CategoryAxis(),
+                                series: <charts.CartesianSeries>[
+                                  // Initialize line series for minimum temperature
+                                  charts.LineSeries<ChartDataWeekly, String>(
+                                      dataSource: _chartDataWeeklyList,
+                                      xValueMapper: (ChartDataWeekly data, _) =>
+                                          data.x,
+                                      yValueMapper: (ChartDataWeekly data, _) =>
+                                          data.minTemp),
+                                  // Initialize line series for maximum temperature
+                                  charts.LineSeries<ChartDataWeekly, String>(
+                                      dataSource: _chartDataWeeklyList,
+                                      xValueMapper: (ChartDataWeekly data, _) =>
+                                          data.x,
+                                      yValueMapper: (ChartDataWeekly data, _) =>
+                                          data.maxTemp)
+                                ])),
                         Container(
                           height: MediaQuery.of(context).size.height * 0.2,
                           color: Color.fromARGB(120, 175, 66, 2),
@@ -403,8 +457,10 @@ class _MyHomePageState extends State<MyHomePage> {
                             scrollDirection: Axis.horizontal,
                             itemCount: _weeklyDataList.length,
                             itemBuilder: (context, index) {
-                              DateTime dateTime = DateTime.parse(_weeklyDataList[index].time);
-                              String dayOfWeek = DateFormat('EEEE').format(dateTime);
+                              DateTime dateTime =
+                                  DateTime.parse(_weeklyDataList[index].time);
+                              String dayOfWeek =
+                                  DateFormat('EEEE').format(dateTime);
                               return Card(
                                 color: Colors.transparent,
                                 child: Padding(
@@ -412,9 +468,12 @@ class _MyHomePageState extends State<MyHomePage> {
                                   child: Column(
                                     children: <Widget>[
                                       Text(dayOfWeek),
-                                      Text('${_weeklyDataList[index].minTemp.toString()}ºC'),
-                                      Text('${_weeklyDataList[index].maxTemp.toString()}ºC'),
-                                      Image.network(_weeklyDataList[index].icon), 
+                                      Text(
+                                          '${_weeklyDataList[index].minTemp.toString()}ºC'),
+                                      Text(
+                                          '${_weeklyDataList[index].maxTemp.toString()}ºC'),
+                                      Image.network(
+                                          _weeklyDataList[index].icon),
                                       // add more fields as needed
                                     ],
                                   ),
