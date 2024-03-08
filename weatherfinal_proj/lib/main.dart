@@ -98,6 +98,8 @@ class _MyHomePageState extends State<MyHomePage> {
         _weatherDescription = '${weatherData['current']['condition']['text']}';
         _weatherIcon = 'http:${weatherData['current']['condition']['icon']}';
         _windSpeed = '${weatherData['current']['wind_kph']} kph';
+        _pageController.animateToPage(_index,
+          duration: Duration(milliseconds: 200), curve: Curves.easeIn);
       });
     } catch (e) {
       setState(() {
@@ -156,21 +158,33 @@ class _MyHomePageState extends State<MyHomePage> {
             IconButton(
               icon: const Icon(Icons.location_on),
               onPressed: () async {
-                _midText = 'Getting weather...';
-                _controller.clear();
+                print("Button pressed");  // Check if the button's onPressed event is being triggered
+
                 try {
-                  // Get the current location
+                  print("Getting current location");
                   Position position = await Geolocator.getCurrentPosition(
                       desiredAccuracy: LocationAccuracy.high);
-                  // Fetch the weather for the current location
+                  print("Current location: ${position.latitude}, ${position.longitude}");
+
                   String location = await apiCalls.fetchLocation(
                       position.latitude, position.longitude);
-                  Map<String, dynamic> weatherData =
-                      await apiCalls.fetchWeather(location);
-                  _midText = 'Weather at $location: ${weatherData['temp_c']}°C';
+
+                  fetchWeatherForCity(location);
+                  _hourlyDataList =
+                        await apiCalls.fetchHourlyData(location);
+                  _chartDataList = _hourlyDataList.map((hourlyData) {
+                    DateTime dateTime = DateTime.parse(hourlyData.time);
+                    String time =
+                        "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+                    return ChartData(time, hourlyData.temperature);
+                  }).toList();
+                // print("Weather data: $weatherData");
+
+                  // _midText = 'Weather at $location: ${weatherData['temp_c']}°C';
                 } catch (e) {
-                  _midText = 'Failed to get weather: $e';
+                  print("Error: $e");  // Print the error to the console
                 }
+
                 setState(() {});
               },
             ),
@@ -309,12 +323,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       children: [
                         Text(
                             _location.split(',')[0], // City name
-                            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 2, 41, 109)),
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 2, 41, 109)),
                             textAlign: TextAlign.center,
                           ),
                           Text(
                             _location.substring(_location.indexOf(',') + 1), // Rest of the location
-                            style: const TextStyle(fontSize: 24, color: Colors.black),
+                            style: const TextStyle(fontSize: 14, color: Colors.black),
                             textAlign: TextAlign.center,
                           ),
                         Container(

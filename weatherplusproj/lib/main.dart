@@ -170,12 +170,9 @@ class _MyHomePageState extends State<MyHomePage> {
                       desiredAccuracy: LocationAccuracy.high);
                   print("Current location: ${position.latitude}, ${position.longitude}");
 
-                  print("Fetching location name");
                   String location = await apiCalls.fetchLocation(
                       position.latitude, position.longitude);
-                  print("Location name: $location");
 
-                  print("Fetching weather data");
                   fetchWeatherForCity(location);
                   _hourlyDataList =
                         await apiCalls.fetchHourlyData(location);
